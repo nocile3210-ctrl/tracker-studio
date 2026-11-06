@@ -311,6 +311,22 @@
   let mode = 'replace';
   let loaded = false;
 
+  // 备份持久化：刷新页面后仍能撤销（localStorage，仅存本机）
+  const BACKUP_KEY = 'ts-lite-backup-v1';
+  function saveBackup(backup) {
+    try { localStorage.setItem(BACKUP_KEY, JSON.stringify(backup)); } catch (e) { /* 配额满就只留内存 */ }
+  }
+  function loadBackup() {
+    try {
+      const raw = localStorage.getItem(BACKUP_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (e) { return null; }
+  }
+  function clearBackup() {
+    try { localStorage.removeItem(BACKUP_KEY); } catch (e) { /* ignore */ }
+  }
+  state.backup = loadBackup();
+
   function setStats() {
     if (!loaded) return;
     const total = state.torrents.reduce((n, t) => n + t.trackers.length, 0);
@@ -395,6 +411,11 @@
       renderHosts();
       renderPreview(null);
       $('footText').textContent = '改动前自动生成备份，可撤销';
+      if (state.backup) {
+        $('download').hidden = false;
+        $('undo').hidden = false;
+        $('footText').textContent = `存在上次的备份（${state.backup.changes.length} 个种子），可撤销`;
+      }
     } catch (err) {
       $('stats').textContent = '加载失败：' + err.message;
     } finally {
@@ -416,6 +437,7 @@
       changes: plan.changes.map((c) => ({ torrentId: c.torrentId, hitIds: c.hitIds, oldUrls: c.oldUrls })),
     };
     state.backup = backup;
+    saveBackup(backup);
     state.running = true;
     $('progressWrap').hidden = false;
     $('errorLog').innerHTML = '';
@@ -471,7 +493,11 @@
     state.running = false;
     $('errorLog').textContent = errors.slice(0, 10).join('\n');
     $('footText').textContent = errors.length ? `撤销完成，${errors.length} 个失败` : '已撤销';
+    clearBackup();
+    state.backup = null;
     await doRefresh();
+    $('download').hidden = true;
+    $('undo').hidden = true;
   }
 
   function downloadBackup() {
