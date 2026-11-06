@@ -14,7 +14,7 @@ param(
     [Parameter(Mandatory = $true)][string]$Token,
     [string]$Owner = "nocile3210-ctrl",
     [string]$Repo = "tracker-studio",
-    [string]$Description = "本地 Web 界面的 BT tracker 批量管理：站点聚合、逐条 diff 预览、自动备份与一键回滚（Transmission / qBittorrent）",
+    [string]$Description = "本地 Web 界面 + 篡改猴脚本，批量管理 Transmission / qBittorrent 的 tracker：站点聚合、逐条 diff 预览、自动备份与一键回滚。 | Web UI and Tampermonkey userscript for batch tracker editing: site grouping, diff preview, backup and one-click rollback.",
     [switch]$Private,
     [switch]$DryRun
 )
@@ -44,10 +44,24 @@ Push-Location $root
 try {
     if (-not (Test-Path ".git")) { throw "当前目录不是 git 仓库：$root" }
 
+    # 注意：中文必须显式按 UTF-8 字节发送。
+    # 直接 -Body $json 会让 Windows PowerShell 按 ISO-8859-1 编码，中文会变成 "?"。
+    function Send-GitHubJson([string]$Uri, [string]$Method, $Payload) {
+        $json = $Payload | ConvertTo-Json -Depth 6
+        $bytes = [System.Text.Encoding]::UTF8.GetBytes($json)
+        return Invoke-RestMethod -Uri $Uri -Method $Method -Headers $headers -Body $bytes `
+            -ContentType "application/json; charset=utf-8"
+    }
+
     # 1. 建仓库（已存在则跳过）
-    $body = @{ name = $Repo; description = $Description; private = [bool]$Private; has_issues = $true; has_wiki = $false } | ConvertTo-Json
     try {
-        Invoke-RestMethod -Uri "$api/user/repos" -Method Post -Headers $headers -Body $body -ContentType "application/json" | Out-Null
+        Send-GitHubJson "$api/user/repos" "Post" @{
+            name        = $Repo
+            description = $Description
+            private     = [bool]$Private
+            has_issues  = $true
+            has_wiki    = $false
+        } | Out-Null
         Write-Host "✓ 已创建仓库 $html"
     }
     catch {
@@ -64,14 +78,16 @@ try {
     if ($LASTEXITCODE -ne 0) { throw "推送失败（exit=$LASTEXITCODE）" }
     Write-Host "✓ 已推送 $branch"
 
-    # 3. 设置 default branch / topics
+    # 3. 设置 description / default branch / topics（仓库已存在时也刷新描述）
     try {
-        Invoke-RestMethod -Uri "$api/repos/$Owner/$Repo" -Method Patch -Headers $headers `
-            -Body (@{ default_branch = $branch } | ConvertTo-Json) -ContentType "application/json" | Out-Null
-        Invoke-RestMethod -Uri "$api/repos/$Owner/$Repo/topics" -Method Put -Headers $headers `
-            -Body (@{ names = @("bt", "tracker", "transmission", "qbittorrent", "pt", "python", "self-hosted") } | ConvertTo-Json) `
-            -ContentType "application/json" | Out-Null
-        Write-Host "✓ 已设置默认分支与 topics"
+        Send-GitHubJson "$api/repos/$Owner/$Repo" "Patch" @{
+            description    = $Description
+            default_branch = $branch
+        } | Out-Null
+        Send-GitHubJson "$api/repos/$Owner/$Repo/topics" "Put" @{
+            names = @("bt", "tracker", "transmission", "qbittorrent", "pt", "python", "self-hosted")
+        } | Out-Null
+        Write-Host "✓ 已设置描述、默认分支与 topics"
     }
     catch {
         Write-Warning "仓库已推送，但补充设置失败：$($_.Exception.Message)"
