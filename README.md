@@ -87,6 +87,10 @@ python tests/smoke_test.py
 - 单文件上限默认 45 MB 的场景与本工具无关（不处理种子文件本体）
 - 不做种子增删、限速、文件优先级——只做 tracker
 
+## 作者
+
+Nocile · [@nocile3210-ctrl](https://github.com/nocile3210-ctrl)
+
 ## License
 
 MIT
