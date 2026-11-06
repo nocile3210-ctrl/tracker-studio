@@ -1,0 +1,14 @@
+# 运行时产物
+backups/
+*.log
+__pycache__/
+*.py[cod]
+
+# 编辑器 / 系统
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# 临时截图
+ui-*.png

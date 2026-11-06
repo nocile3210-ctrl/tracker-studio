@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="dark">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Tracker Studio</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🧭</text></svg>" />
+<link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <div class="brand">
+      <span class="logo">🧭</span>
+      <div>
+        <h1>Tracker Studio</h1>
+        <p id="subtitle">本地 tracker 批量管理</p>
+      </div>
+    </div>
+    <div class="topbar-actions">
+      <span id="conn-badge" class="badge muted">未连接</span>
+      <button id="btn-theme" class="icon-btn" title="切换主题">◐</button>
+      <button id="btn-connect" class="btn ghost">连接客户端</button>
+    </div>
+  </header>
+
+  <section id="connect-panel" class="card connect hidden">
+    <div class="card-head">
+      <h2>连接客户端</h2>
+      <button class="icon-btn close" data-close="connect-panel">✕</button>
+    </div>
+    <div class="grid-2">
+      <label class="field">
+        <span>类型</span>
+        <select id="f-kind">
+          <option value="transmission">Transmission（RPC）</option>
+          <option value="qbittorrent">qBittorrent（Web API）</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>地址</span>
+        <input id="f-url" placeholder="http://127.0.0.1:9091/transmission/rpc" />
+      </label>
+      <label class="field">
+        <span>用户名</span>
+        <input id="f-user" placeholder="可留空" autocomplete="off" />
+      </label>
+      <label class="field">
+        <span>密码</span>
+        <input id="f-pass" type="password" placeholder="可留空" autocomplete="off" />
+      </label>
+    </div>
+    <div class="row-between">
+      <label class="check"><input type="checkbox" id="f-insecure" /> 忽略 HTTPS 证书错误</label>
+      <button id="btn-do-connect" class="btn primary">连接</button>
+    </div>
+    <p class="hint">凭据只存在本次进程内存里，不写磁盘。qb 侧只处理每个种子的主 tracker。</p>
+  </section>
+
+  <section class="stats" id="stats">
+    <div class="stat"><span class="stat-label">种子</span><b id="s-torrents">—</b></div>
+    <div class="stat"><span class="stat-label">tracker 条目</span><b id="s-trackers">—</b></div>
+    <div class="stat"><span class="stat-label">站点</span><b id="s-hosts">—</b></div>
+    <div class="stat"><span class="stat-label">版本</span><b id="s-version">—</b></div>
+    <div class="stat grow"><span class="stat-label">清单时间</span><b id="s-loaded">—</b></div>
+    <button id="btn-refresh" class="btn ghost" disabled>刷新清单</button>
+  </section>
+
+  <main class="layout">
+    <aside class="sidebar card">
+      <div class="card-head">
+        <h2>站点</h2>
+        <span class="count" id="host-count">0</span>
+      </div>
+      <input id="host-search" class="search" placeholder="过滤站点…" />
+      <ul id="host-list" class="facets"></ul>
+    </aside>
+
+    <section class="main-col">
+      <div class="toolbar card">
+        <input id="torrent-search" class="search grow" placeholder="搜索种子名…" />
+        <button id="btn-export" class="btn ghost" disabled>导出 CSV</button>
+        <button id="btn-backups" class="btn ghost">备份 / 回滚</button>
+      </div>
+
+      <div class="card table-card">
+        <div class="table-head">
+          <span>种子</span>
+          <span>tracker</span>
+        </div>
+        <div id="torrent-list" class="torrent-list">
+          <p class="empty">连接后点「刷新清单」</p>
+        </div>
+      </div>
+    </section>
+
+    <aside class="ops card">
+      <div class="card-head"><h2>批量操作</h2></div>
+
+      <div class="seg" id="mode-seg">
+        <button data-mode="replace" class="on">替换</button>
+        <button data-mode="add">追加</button>
+        <button data-mode="remove">删除</button>
+      </div>
+
+      <label class="field">
+        <span>匹配方式</span>
+        <select id="o-match">
+          <option value="host">按站点主机名（推荐）</option>
+          <option value="exact">完整 URL 精确匹配</option>
+          <option value="contains">包含字符串 / passkey 片段</option>
+          <option value="regex">正则</option>
+        </select>
+      </label>
+      <label class="field">
+        <span>旧 tracker</span>
+        <input id="o-old" placeholder="tracker.example.com 或完整 URL" />
+      </label>
+      <label class="field">
+        <span>新 announce URL</span>
+        <input id="o-new" placeholder="https://tracker.example.com/announce.php?passkey=…" />
+      </label>
+      <div class="grid-2">
+        <label class="field">
+          <span>种子名过滤</span>
+          <input id="o-name" placeholder="可留空" />
+        </label>
+        <label class="field">
+          <span>最多处理</span>
+          <input id="o-limit" type="number" min="0" placeholder="0 = 全部" />
+        </label>
+      </div>
+      <button id="btn-preview" class="btn primary wide" disabled>预览改动</button>
+      <p class="hint">预览只读，不会写入。确认后才会执行，执行前自动备份。</p>
+    </aside>
+  </main>
+</div>
+
+<!-- 预览抽屉 -->
+<div id="preview-drawer" class="drawer hidden">
+  <div class="drawer-head">
+    <div>
+      <h2 id="preview-title">改动预览</h2>
+      <p id="preview-sub" class="hint"></p>
+    </div>
+    <button class="icon-btn close" data-close="preview-drawer">✕</button>
+  </div>
+  <div id="preview-warnings" class="warnings"></div>
+  <div class="table-scroll">
+    <table class="diff">
+      <thead><tr><th>种子</th><th>原 tracker</th><th>→ 新 tracker</th></tr></thead>
+      <tbody id="preview-rows"></tbody>
+    </table>
+  </div>
+  <div class="drawer-foot">
+    <button class="btn ghost" data-close="preview-drawer">取消</button>
+    <button id="btn-apply" class="btn danger">确认执行</button>
+  </div>
+</div>
+
+<!-- 进度 -->
+<div id="progress-modal" class="modal hidden">
+  <div class="modal-card">
+    <h2 id="progress-title">执行中…</h2>
+    <div class="progress"><div id="progress-bar" class="progress-bar"></div></div>
+    <p id="progress-text" class="hint">0 / 0</p>
+    <div id="progress-errors" class="errors"></div>
+    <button id="btn-close-progress" class="btn ghost wide hidden">关闭</button>
+  </div>
+</div>
+
+<!-- 备份 -->
+<div id="backups-drawer" class="drawer hidden">
+  <div class="drawer-head">
+    <div><h2>备份与回滚</h2><p class="hint">每次执行前自动落盘，回滚会把这些种子的 tracker 改回记录值</p></div>
+    <button class="icon-btn close" data-close="backups-drawer">✕</button>
+  </div>
+  <div id="backup-list" class="backup-list"></div>
+</div>
+
+<div id="toast" class="toast hidden"></div>
+<script src="/static/app.js"></script>
+</body>
+</html>
