@@ -1,0 +1,61 @@
+﻿<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8" />
+<title>userscript harness</title>
+<style>html,body{margin:0;background:#0b0f14;height:100%}</style>
+</head>
+<body>
+<script>
+const OLD = 'https://tracker.cccseal.com/announce.php?passkey=fc6ef2e00b8a48b7f06a893ddc770e8f';
+const MOCK = [
+  { id: 1, name: 'A 短剧（101集）- SKIT', totalSize: 1.2e9,
+    trackers: [{ id: 11, announce: OLD, tier: 0 }, { id: 12, announce: 'udp://keep.example:6969/announce', tier: 1 }] },
+  { id: 2, name: 'B 短剧（80集）- SKIT', totalSize: 1.1e9,
+    trackers: [{ id: 21, announce: OLD, tier: 0 }] },
+  { id: 3, name: 'C 电影.The.Movie.2022.1080p', totalSize: 8.4e9,
+    trackers: [{ id: 31, announce: 'https://tracker.novahd.top/announce.php?passkey=abc', tier: 0 }] },
+  { id: 4, name: 'D 电影.Another.2021.2160p', totalSize: 12e9,
+    trackers: [{ id: 41, announce: 'https://tracker.novahd.top/announce.php?passkey=abc', tier: 0 }] },
+];
+window.__rpcCalls = [];
+window.fetch = async (url, opts) => {
+  const body = JSON.parse(opts.body || '{}');
+  window.__rpcCalls.push(body.method);
+  let args = {};
+  if (body.method === 'session-get') args = { 'rpc-version': 17, version: '4.0.6' };
+  else if (body.method === 'torrent-get') args = { torrents: MOCK };
+  else if (body.method === 'torrent-set') args = {};
+  else return { status: 200, json: async () => ({ result: 'method not recognized', arguments: {} }) };
+  return { status: 200, json: async () => ({ result: 'success', arguments: args }) };
+};
+window.__TS_DEBUG = true;
+</script>
+<script src="../userscript/tracker-studio-lite.user.js"></script>
+<script>
+const NEW_URL = 'https://tracker.ptskit.org/announce.php?passkey=fc6ef2e00b8a48b7f06a893ddc770e8f';
+const root = () => document.getElementById('tracker-studio-lite').shadowRoot;
+function report(text) {
+  let pre = document.getElementById('dbg');
+  if (!pre) { pre = document.createElement('pre'); pre.id = 'dbg'; document.body.appendChild(pre); }
+  pre.textContent = text;
+  document.title = 'DBG ' + text.replace(/\s+/g, ' ');
+}
+setTimeout(async () => {
+  root().getElementById('fab').click();
+  await new Promise(r => setTimeout(r, 300));
+  const direct = window.__ts.buildPlan({ mode: 'replace', match: 'host', oldValue: 'tracker.cccseal.com', newValue: NEW_URL, nameFilter: '', host: '', limit: 0 });
+  const items = root().querySelectorAll('#hostList .item');
+  if (items[1]) items[1].click();
+  root().getElementById('oldValue').value = 'tracker.cccseal.com';
+  root().getElementById('newValue').value = NEW_URL;
+  root().getElementById('match').value = 'host';
+  root().getElementById('preview').click();
+  await new Promise(r => setTimeout(r, 300));
+  const rows = root().querySelectorAll('#previewBox .prow').length;
+  report('direct=' + direct.changes.length + ' uiRows=' + rows + ' torrents=' + window.__ts.state.torrents.length);
+}, 400);
+</script>
+</body>
+</html>
+

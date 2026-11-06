@@ -1,10 +1,27 @@
-# Tracker Studio
+﻿# Tracker Studio
 
 **本地 Web 界面的 BT tracker 批量管理工具** —— 把「14000 个种子里的某条 tracker 换掉」变成三步：看清单 → 预览 → 执行。
 
 不依赖第三方库，只需要 Python 3.9+。不用装 Node、不用 npm、不用 pip。
 
 ![界面](docs/screenshot-dark.png)
+
+
+## 两种用法
+
+### A. 篡改猴脚本（推荐，零部署）
+
+`serscript/tracker-studio-lite.user.js` —— 直接注入 Transmission Web 页面，右下角一个 🧭 按钮（或 `Ctrl+Alt+T`）。
+
+装法：打开 Tampermonkey 面板 → **添加新脚本** → 粘贴文件内容 → 保存；或者把 `.user.js` 文件直接拖进 Tampermonkey 的管理面板，它会弹安装页。
+
+匹配 `*://*/transmission/web/*`，所以在 `http://你的盒子:9091/transmission/web/` 上会自动生效。RPC 地址由当前页面路径推导（`/transmission/web` → `/transmission/rpc`），登录状态沿用浏览器里已有的 Basic Auth。
+
+![userscript](docs/screenshot-userscript.png)
+
+### B. 独立 Web 应用
+
+`python tracker_studio.py --open`，见上文。
 
 ## 为什么不用现成的
 
@@ -94,3 +111,4 @@ Nocile · [@nocile3210-ctrl](https://github.com/nocile3210-ctrl)
 ## License
 
 MIT
+
